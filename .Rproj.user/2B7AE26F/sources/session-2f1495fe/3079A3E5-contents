@@ -1,0 +1,103 @@
+# Tokenización y lematización de tuits, comentarios de youtube y tiktok
+
+## Código elaborado por Toaki Hoz Canabal 
+
+# Readme: Código final para el análisis con tokenización y lematización. EN el caso de witter ya están limpios los comentarios, en los demás hay que limpiar. Posterior se lematiza y se analiza. Al último se busca la mejor prueba de hipótesis. 
+
+# setup-------
+Sys.setlocale("LC_ALL", "es_ES.UTF-8") #Cambiar locale para prevenir problemas con caracteres especiales
+options(scipen=999) # Prevenir notación científica
+
+
+# Cargamos paquetes ------
+if(!require('pacman')) install.packages('pacman')
+pacman::p_load(dplyr, future.apply, ggplot2, stringr, textcat)
+
+
+# Tokenización -------
+
+## Cargamos diccionarios  -------
+(afin <- tibble(read.csv(file = "01_datos/lexico_afinn.en.es.csv", encoding = "latin1",
+                         stringsAsFactors = F ))
+ )
+
+## stop woords -----
+## Creamos los stop_word
+custom_stop_words <- bind_rows(#tibble(word = jsonlite::fromJSON("01_datos/stop_words_spanish_443.json"),
+  #lexicon = "countwordsfree.com"),
+  tibble(word = c(tm::stopwords("spanish"), tm::stopwords("english")),
+         lexicon = "tm-stopwords"),
+  # tibble(word = jsonlite::fromJSON("01_datos/stop_words_spanish_732"),
+  #       lexicon = "stopwords-iso")
+) 
+
+
+palabras <- tibble(word = c("https", "htpp","the", 1:1000, "of", "solo", "dos", "2020", "2021", "2023", 
+                            "ciudad", "méxico", "digital", "impresa", "san", "gobierno", "documento",
+                            "si", "to", "and", "in", "for", "your", "jajajaj", "jajaja", "with", "q",
+                            "jajajaja", "así", "van", "ver", "ahí","dice", "gran", "hace", "ser", "ja",
+                            "jaja", "bla","blabla", "rheumatoid", "arthritis", "gt", "gtgt", "get", "started", 
+                            "now", "available", "help", "us", "join", "3η", "eta", "visit", "starlink", "established",
+                            "ra", "amp", "radx6", "profile", "take", "back", "high", "speed", "etc", "etc etc"))
+
+custom_stop_words <- bind_rows(custom_stop_words, palabras)
+
+
+## Cargamos datos de tuita -----
+twitter_todos <- readRDS("tuits_procesados_finales/twiter_todos_con_lenguajes.rds") |> 
+  mutate(id = row_number()) |> 
+  tidyr::unnest(lenguaje) |> 
+  filter(!lenguaje %in% c("danish", "english", "frisian", "german", "hubgarian", "icelandic", "nepali", "norwegian", "tagalog", "turkish", "welsh")) |>  # filtramos lenguajes sin sentido
+  # select(comment_content, content_cleaned, lenguaje) |> 
+  filter(!is.na(lenguaje))
+
+
+
+### Tokenizamos con tidyverse-----------
+# La tokenización usa el diccionario en español e inglés del diccionario TM: https://tm.r-forge.r-project.org/
+
+# r tokenizacion 
+
+tuiter_tokens <- 
+  twitter_todos |> 
+  select(id, to, 
+         comment_content,
+         comment_author_name, 
+         comment_number_of_likes, 
+         comment_number_of_retweets, 
+         comment_number_of_reviews) |>  
+  mutate(comment_limpio = str_replace_all(comment_content, "#\\w+", ""), #Elimina Hagstags
+         comment_limpio = str_replace_all(comment_limpio, "@\\w+", ""), #Elimina menciones
+         comment_limpio = str_replace_all(comment_limpio, "https?://\\S+", ""),  #Elimina enlaces
+         comment_limpio = str_squish(comment_limpio),
+         comment_limpio_2 = comment_limpio) |>  # Elimina espacios extras 
+  tibble() |> 
+  tidytext::unnest_tokens(word,comment_limpio, to_lower = T) |> 
+  select(id, to, comment_limpio_2, word, everything()) 
+
+
+# antijoin con stop-words
+tuiter_tokens <- tuiter_tokens %>%  anti_join(custom_stop_words)
+## Bajamos de 2 millones de palabras a 1, 320, 705 palabras
+tuiter_tokens |> 
+  distinct(comment_limpio_2)
+# Se vuelve un análisis de 142k tuits
+
+
+
+
+## Análisis de sentimiento -------
+# Cargamos el diccionario
+(afin <- tibble(read.csv(file = "01_datos/lexico_afinn.en.es.csv", encoding = "latin1",
+                         stringsAsFactors = F ))
+)
+
+# Unimos ambas partes
+(tuiter_tokens <- tuiter_tokens %>% 
+    inner_join(afin, by = c("word" = "Palabra"), 
+               relationship = "many-to-many") %>% 
+    mutate(Tipo = if_else(Puntuacion > 0, "Positiva", "Negativa")) 
+)
+
+
+### Aquí un problema, como no están lematizadas (en infinitivo), el diccionario no usa sus conjugaciones y bajamos hasta 146,630

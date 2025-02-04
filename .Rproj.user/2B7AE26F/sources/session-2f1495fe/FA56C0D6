@@ -1,0 +1,28 @@
+{
+    "id": "FA56C0D6",
+    "path": null,
+    "project_path": null,
+    "type": "object_explorer",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1738250995020.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "id": "0606001c4bd84a03a6d9293cf4df718e",
+        "name": "lista_final",
+        "title": "lista_final",
+        "language": "R",
+        "source_window_id": "",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 2483032422112,
+    "encoding": "",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1738250995020,
+    "read_only": false,
+    "read_only_alternatives": []
+}
